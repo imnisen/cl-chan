@@ -1,0 +1,28 @@
+* Cl-Chan 
+
+** Usage
+
+** Installation
+
+** Author
+
++ Nisen (imnisen@gmail.com)
+
+** Copyright
+
+Copyright (c) 2019 Nisen (imnisen@gmail.com)
+
+** License
+
+Licensed under the BSD License.
+
+
+** TODOS
+
+*** add buffered channel
+- check how the queue is make?
+*** add select
+*** port other chanl rest concepts
+*** port chan.c other funcs
+*** write test case
+*** refactor readers,writers to readers-waiting, writers-waiting

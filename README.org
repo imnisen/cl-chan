@@ -30,6 +30,7 @@ Licensed under the BSD License.
     :LOGBOOK:
     - State "DONE"       from              [2019-10-08 Tue 15:16]
     :END:
+*** may select has a bug, first can recv/send, then recv/send it fails. so we should retry right?
 *** port other chanl rest concepts
 *** port chan.c other funcs
 *** write test case

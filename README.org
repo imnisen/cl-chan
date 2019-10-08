@@ -19,10 +19,19 @@ Licensed under the BSD License.
 
 ** TODOS
 
-*** add buffered channel
+*** DONE add buffered channel
+    CLOSED: [2019-10-08 Tue 15:16]
+    :LOGBOOK:
+    - State "DONE"       from              [2019-10-08 Tue 15:16]
+    :END:
 - check how the queue is make?
-*** add select
+*** DONE add select
+    CLOSED: [2019-10-08 Tue 15:16]
+    :LOGBOOK:
+    - State "DONE"       from              [2019-10-08 Tue 15:16]
+    :END:
 *** port other chanl rest concepts
 *** port chan.c other funcs
 *** write test case
 *** refactor readers,writers to readers-waiting, writers-waiting
+*** select implenmentation use `eval`, consider trying another method to avoid it?

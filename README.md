@@ -1,90 +1,96 @@
 
 # Table of Contents
 
-1.  [Cl-Chan](#org8053fb2)
-    1.  [Usage](#org7ed3e1a)
-    2.  [Installation](#org9f0f24d)
-    3.  [Author](#org066c1fb)
-    4.  [Copyright](#org94fdc61)
-    5.  [License](#orgb15f5f6)
-    6.  [S](#orgacf0188)
-        1.  [add buffered channel](#orgccf9b16)
-        2.  [add select](#org3cf57f0)
-        3.  [port other chanl rest concepts](#org45114f3)
-        4.  [port chan.c other funcs](#orge3a12c8)
-        5.  [write test case](#org8136ce5)
-        6.  [refactor readers,writers to readers-waiting, writers-waiting](#orgdd6fa93)
+1.  [Cl-Chan](#org31e80bf)
+    1.  [Usage](#org4856940)
+    2.  [Installation](#org6ab193f)
+    3.  [Author](#orgee874ab)
+    4.  [Copyright](#orgd4da8d3)
+    5.  [License](#orgd0f85e9)
+    6.  [S](#org736f058)
+        1.  [add buffered channel](#orgbaae1e3)
+        2.  [add select](#org28010a7)
+        3.  [port other chanl rest concepts](#org24b4336)
+        4.  [port chan.c other funcs](#orgfbf0772)
+        5.  [write test case](#org46ead57)
+        6.  [refactor readers,writers to readers-waiting, writers-waiting](#org74f1867)
+        7.  [select implenmentation use \`eval\`, consider trying another method to avoid it?](#org9bd8eee)
 
 
-<a id="org8053fb2"></a>
+<a id="org31e80bf"></a>
 
 # Cl-Chan
 
 
-<a id="org7ed3e1a"></a>
+<a id="org4856940"></a>
 
 ## Usage
 
 
-<a id="org9f0f24d"></a>
+<a id="org6ab193f"></a>
 
 ## Installation
 
 
-<a id="org066c1fb"></a>
+<a id="orgee874ab"></a>
 
 ## Author
 
 -   Nisen (imnisen@gmail.com)
 
 
-<a id="org94fdc61"></a>
+<a id="orgd4da8d3"></a>
 
 ## Copyright
 
 Copyright (c) 2019 Nisen (imnisen@gmail.com)
 
 
-<a id="orgb15f5f6"></a>
+<a id="orgd0f85e9"></a>
 
 ## License
 
 Licensed under the BSD License.
 
 
-<a id="orgacf0188"></a>
+<a id="org736f058"></a>
 
 ## TODO S
 
 
-<a id="orgccf9b16"></a>
+<a id="orgbaae1e3"></a>
 
-### add buffered channel
+### DONE add buffered channel
 
 -   check how the queue is make?
 
 
-<a id="org3cf57f0"></a>
+<a id="org28010a7"></a>
 
-### add select
+### DONE add select
 
 
-<a id="org45114f3"></a>
+<a id="org24b4336"></a>
 
 ### port other chanl rest concepts
 
 
-<a id="orge3a12c8"></a>
+<a id="orgfbf0772"></a>
 
 ### port chan.c other funcs
 
 
-<a id="org8136ce5"></a>
+<a id="org46ead57"></a>
 
 ### write test case
 
 
-<a id="orgdd6fa93"></a>
+<a id="org74f1867"></a>
 
 ### refactor readers,writers to readers-waiting, writers-waiting
+
+
+<a id="org9bd8eee"></a>
+
+### select implenmentation use \`eval\`, consider trying another method to avoid it?
 

@@ -10,21 +10,21 @@
 (in-suite construction)
 
 (test make-unbuffered
-  (let ((chan (make-instance 'channel)))
-    ;; (is (channelp chan))
-    (is (not (channel-buffered-p chan)))
-    (is (= 0 (channel-readers chan)))
-    (is (= 0 (channel-writers chan)))
-    (is (eq *secret-unbound-value* (channel-value chan)))
+      (let ((chan (make-instance 'channel)))
+        ;; (is (channelp chan))
+        (is (not (channel-buffered-p chan)))
+        (is (= 0 (channel-readers-waiting chan)))
+        (is (= 0 (channel-writers-waiting chan)))
+        (is (eq *secret-unbound-value* (channel-value chan)))
 
-    ;; (is (send-blocks-p chan))
-    ;; (is (recv-blocks-p chan))
+        ;; (is (send-blocks-p chan))
+        ;; (is (recv-blocks-p chan))
 
-    ;; We don't really have predicates for these, but if they exist, we assume
-    ;; they're what they're suposed to be.
-    (is (channel-lock chan))
-    (is (channel-send-ok chan))
-    (is (channel-recv-ok chan))))
+        ;; We don't really have predicates for these, but if they exist, we assume
+        ;; they're what they're suposed to be.
+        (is (channel-lock chan))
+        (is (channel-send-ok chan))
+        (is (channel-recv-ok chan))))
 
 ;; #+ (or sbcl (and ccl (or x86 x86_64)))
 ;; (test make-cas

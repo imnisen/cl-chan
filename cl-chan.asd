@@ -37,7 +37,7 @@
                   *****************************************~@
                   ** If there were any failures, please  **~@
                   **      file a bugreport on github:    **~@
-                  **     github.com/zkat/chanl/issues    **~@
+                  **     github.com/imnisen/cl-chan/issues    **~@
                   *****************************************~%"))
   ;; (test-op (op c) (symbol-call :rove :run c))
   )

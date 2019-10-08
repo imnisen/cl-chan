@@ -11,7 +11,9 @@
 (defgeneric recv (chan)
   (:documentation "TODO"))
 
-
+(defgeneric channelp (chan)
+  (:method ((chan abstract-channel)) t)
+  (:method ((something-else t)) nil))
 ;;;
 ;;; Unbuffered channels
 ;;;
@@ -25,8 +27,8 @@
    (lock :initform (bt:make-recursive-lock) :accessor channel-lock)
    (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)
    (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)
-   (readers :initform 0 :accessor channel-readers)
-   (writers :initform 0 :accessor channel-writers)
+   (readers-waiting :initform 0 :accessor channel-readers-waiting)
+   (writers-waiting :initform 0 :accessor channel-writers-waiting)
 
    ;; need closed? add latter!
 
@@ -48,17 +50,17 @@
                    (writer-lock channel-writer-lock)
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok)
-                   (writers channel-writers)
-                   (readers channel-readers))
+                   (writers-waiting channel-writers-waiting)
+                   (readers-waiting channel-readers-waiting))
       channel
     (bt:with-recursive-lock-held (writer-lock)
       (bt:with-recursive-lock-held (lock) ;; ========== lock
         (format t "send: start~%")
         (channel-insert-value channel value)
         (format t "send: insert value~%")
-        (incf writers)
+        (incf writers-waiting)
 
-        (when (> readers 0)
+        (when (> readers-waiting 0)
           (bt:condition-notify recv-ok) ;; ----- notify reck-ok
           (format t "send: notify recv-ok~%"))
 
@@ -75,24 +77,24 @@
                    (reader-lock channel-reader-lock)
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok)
-                   (writers channel-writers)
-                   (readers channel-readers))
+                   (writers-waiting channel-writers-waiting)
+                   (readers-waiting channel-readers-waiting))
       channel
     (bt:with-recursive-lock-held (reader-lock)
       (bt:with-recursive-lock-held (lock)  ;; ========= hold lock
         (format t "recv: start~%")
-        (loop until (> writers 0)
+        (loop until (> writers-waiting 0)
               do (progn
-                   (incf readers)
+                   (incf readers-waiting)
                    (format t "recv: wait recv-ok ~%")
                    (bt:condition-wait recv-ok lock)  ;;========= release lock,  wait recv-ok
                    (format t "recv: get recv-ok~%")
-                   (decf readers)))
+                   (decf readers-waiting)))
 
         (multiple-value-prog1
             (values (channel-grab-value channel) channel)
           (format t "recv:get value~%")
-          (decf writers)
+          (decf writers-waiting)
           (bt:condition-notify send-ok) ;; ------ notify send-ok
           (format t "recv: notify send-ok~%")
           (format t "recv end~%"))))))
@@ -175,3 +177,108 @@
         (when (> writers-waiting 0)
           (bt:condition-notify send-ok))
         ))))
+
+
+;; what does select return?
+;; select syntax
+(select3
+  ((recv c d)
+   (format t "got ~a from c~%" d)
+   (print "1"))
+  ((send e val)
+   (print "sent val on e~%")
+   (print "2"))
+  (otherwise ;; default form
+   (print "would have blocked~%")
+   (print "hi")))
+
+
+
+(defmacro select (&body clauses)
+  (let ((default))
+    (with-gensyms (can choosen channel typ clau arg)
+      `(let ((,can nil))
+         ,@(loop :for each :in clauses
+                 :collect (ecase (clause-type each)
+                            (:send `(when (chan-can-send ,(second (first each)))
+                                      (push (list
+                                             ,(second (first each))  ;; channel
+                                             :send  ;; type
+                                             ',(rest each)  ;; body
+                                             ,(third (first each)))  ;; val to be sent
+                                            ,can)))
+                            (:recv `(when (chan-can-recv ,(second (first each)))
+                                      (push (list
+                                             ,(second (first each)) ;; channel
+                                             :recv  ;; type
+                                             ',(rest each) ;; body
+                                             ,(third (first each)) ;; recv variable to bind
+                                             )
+                                            ,can)))
+                            (:else (push (rest each) default) nil)))
+
+         (if (null ,can)
+             (progn
+               ,@(pop default))
+             (progn
+               (let* ((,choosen (list-random-element ,can))
+                      (,channel (first ,choosen))
+                      (,typ (second ,choosen))
+                      (,clau (third ,choosen))
+                      (,arg (fourth ,choosen)))
+                 (if (equal ,typ :recv)
+                     (multiple-value-bind (,arg)
+                         (recv ,channel)
+                       (mapcar #'eval ,clau))
+                     (progn (send ,channel ,arg)
+                            (mapcar #'eval ,clau))))))
+         nil))))
+
+
+
+(defun list-random-element (lst)
+  (nth (random (length lst)) lst))
+
+;; channels: `((:send c (progn body)) (:recv e (progn body)) (:else (progn body)
+(defun inner-select (channels)
+  (loop :with candicates := nil
+        :for each :in channels
+        :do (cond ((equal (first each) :send)
+                   (when (chan-can-send (second each))
+                     (push each candicates)))
+                  ((equal (first each) :recv)
+                   (when (chan-can-recv (second each))
+                     (push each candicates))))
+        :finally (list-random-element candicates)))
+
+(defgeneric chan-can-recv (channel)
+  (:method ((channel channel))
+    (bt:with-recursive-lock-held ((channel-lock channel))
+      (> (channel-writers-waiting channel) 0)))
+  (:method ((channel buffered-channel))
+    (> (queue-count (channel-queue chanel)) 0)))
+
+(defgeneric chan-can-send (channel)
+  (:method ((channel channel))
+    (bt:with-recursive-lock-held ((channel-lock channel))
+      (> (channel-writers-waiting channel) 0)))
+  (:method ((channel buffered-channel))
+    (let ((queue (channel-queue channel)))
+      (< (queue-count queue) (queue-length queue)))))
+
+(defgeneric chan-size (channel)
+  (:method ((channel channel)) 0)
+  (:method ((channel buffered-channel))
+    (bt:with-recursive-lock-held ((channel-lock channel))
+      (queue-count (channel-queue channel)))))
+
+(defun clause-type (clause)
+  (cond ((when (symbolp (car clause))
+           (or (string-equal (car clause) "t")
+               (string-equal (car clause) "else")
+               (string-equal (car clause) "otherwise")))
+         :else) ;; when `default case` use "t","else","otherwise",  we mark it ":else"
+        ((atom (car clause)) (error "Invalid selector: ~S" (car clause))) ;; clause could't be `atom`
+        ((string-equal (caar clause) "send") :send)
+        ((string-equal (caar clause) "recv") :recv)
+        (t (error "Invalid selector: ~S" (caar clause)))))

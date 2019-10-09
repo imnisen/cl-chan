@@ -96,9 +96,9 @@ a setf-able form. NOTE: Does not support docstrings."
       (get-setf-expansion list env)
     (multiple-value-bind (tail.gvars tail.vals tail.gstorevars tail.setter tail.getter)
 	(get-setf-expansion list-end env)
-      (let ((gitem (gensym))
-	    (list.gstorevar (first list.gstorevars))
-	    (tail.gstorevar (first tail.gstorevars)))
+      (let  ((gitem (gensym))
+             (list.gstorevar (first list.gstorevars))
+             (tail.gstorevar (first tail.gstorevars)))
 	`(let (,@(mapcar #'list list.gvars list.vals)
 	       ,@(mapcar #'list tail.gvars tail.vals))
 	   (let ((,gitem (list ,new-item)))
@@ -109,3 +109,9 @@ a setf-able form. NOTE: Does not support docstrings."
 		 (let ((,list.gstorevar ,gitem)
 		       (,tail.gstorevar ,gitem))
 		   ,list.setter ,tail.setter))))))))
+
+;;;
+;;; Above is copied from https://github.com/zkat/chanl/. Below is not.
+;;;
+(defun list-random-element (lst)
+  (nth (random (length lst)) lst))

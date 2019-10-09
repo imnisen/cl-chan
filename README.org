@@ -1,3 +1,4 @@
+#+OPTIONS: toc:nil
 * Cl-Chan 
 
 ** Usage
@@ -30,9 +31,14 @@ Licensed under the BSD License.
     :LOGBOOK:
     - State "DONE"       from              [2019-10-08 Tue 15:16]
     :END:
-*** may select has a bug, first can recv/send, then recv/send it fails. so we should retry right?
+*** may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
 *** port other chanl rest concepts
 *** port chan.c other funcs
 *** write test case
 *** refactor readers,writers to readers-waiting, writers-waiting
 *** select implenmentation use `eval`, consider trying another method to avoid it?
+*** Do we need close and init of channel?
+*** can we abstract concepts like chanl?
+*** Add documentation of methods.
+*** Refactor name.
+*** Export useful functions from other file

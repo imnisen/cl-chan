@@ -50,8 +50,8 @@
         (incf writers-waiting)
         (when (> readers-waiting 0)
           (bt:condition-notify recv-ok)
-          (bt:condition-wait send-ok lock)
-          channel)))))
+          (bt:condition-wait send-ok lock))
+        channel))))
 
 ;;; Receive value from unbuffered channel
 (defmethod recv ((channel unbuffered-channel))
@@ -122,7 +122,7 @@
       channel)))
 
 ;;; Receive value from buffered channel
-(defmethod recv ((channel buffered-cha1nnel))
+(defmethod recv ((channel buffered-channel))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
                    (writers-waiting channel-writers-waiting)
@@ -193,7 +193,7 @@
     (bt:with-recursive-lock-held ((channel-lock channel))
       (> (channel-writers-waiting channel) 0)))
   (:method ((channel buffered-channel))
-    (> (queue-count (channel-queue chanel)) 0)))
+    (> (queue-count (channel-queue channel)) 0)))
 
 (defgeneric chan-can-send (channel)
   (:method ((channel unbuffered-channel))
@@ -225,4 +225,4 @@
 (defun make-channel (&key (buffered nil) (size 1))
   (if buffered
       (make-instance 'buffered-channel :size size)
-      (make-instance unbuffered-channel)))
+      (make-instance 'unbuffered-channel)))

@@ -81,7 +81,18 @@ Do whatever you want.
     :LOGBOOK:
     - State "DONE"       from              [2019-10-08 Tue 15:16]
     :END:
-*** may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
+*** TODO may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
+The problem is due to check and actually send/recv is not guaranteed to be consistent.
+So if channel can send/recv, don't release the lock, get the value also.
+
+Steps:
+1. add send/recv blockp feature.
+
+2. change select select logic:
+first random choose a channel to send/recv, use (send/recv blockp nil), if success return, else choose another one.
+
+Maybe let's check how golang implement send,recv and select?
+
 *** port other chanl rest concepts
 *** port chan.c other funcs
 *** write test case

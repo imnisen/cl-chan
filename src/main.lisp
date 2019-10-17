@@ -7,10 +7,10 @@
   ()
   (:documentation "The base class of all channel"))
 
-(defgeneric send (channel value)
+(defgeneric send (channel value &key)
   (:documentation "Send value to channel"))
 
-(defgeneric recv (channel)
+(defgeneric recv (channel &key)
   (:documentation "Receive value from channel"))
 
 (defgeneric channelp (channel)
@@ -27,16 +27,23 @@
 
 (defclass unbuffered-channel (abstract-channel)
   ((value :initform *secret-unbound-value* :accessor channel-value)
+
    (reader-lock :initform (bt:make-recursive-lock) :accessor channel-reader-lock)
    (writer-lock :initform (bt:make-recursive-lock) :accessor channel-writer-lock)
+
    (lock :initform (bt:make-recursive-lock) :accessor channel-lock)
+
    (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)
    (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)
+
    (readers-waiting :initform 0 :accessor channel-readers-waiting)
-   (writers-waiting :initform 0 :accessor channel-writers-waiting)))
+   (writers-waiting :initform 0 :accessor channel-writers-waiting)
+
+   (readers :initform 0 :accessor channel-readers)
+   (writers :initform 0 :accessor channel-writers)))
 
 ;;; Send value to unbuffered channel.
-(defmethod send ((channel unbuffered-channel) value)
+(defmethod send ((channel unbuffered-channel) value &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (writer-lock channel-writer-lock)
                    (recv-ok channel-recv-ok)
@@ -46,15 +53,22 @@
       channel
     (bt:with-recursive-lock-held (writer-lock)
       (bt:with-recursive-lock-held (lock)
+        ;; set value
         (setf (channel-value channel) value)
+
+        ;; may coroperate with recv-ok to active the recver.
         (incf writers-waiting)
+
+        ;; notify if there are readers waiting
         (when (> readers-waiting 0)
-          (bt:condition-notify recv-ok)
-          (bt:condition-wait send-ok lock))
+          (bt:condition-notify recv-ok))
+
+        ;; wait signal from readers
+        (bt:condition-wait send-ok lock)
         channel))))
 
 ;;; Receive value from unbuffered channel
-(defmethod recv ((channel unbuffered-channel))
+(defmethod recv ((channel unbuffered-channel) &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (reader-lock channel-reader-lock)
                    (recv-ok channel-recv-ok)
@@ -64,14 +78,21 @@
       channel
     (bt:with-recursive-lock-held (reader-lock)
       (bt:with-recursive-lock-held (lock)
+        ;; wait until senders ok
         (loop until (> writers-waiting 0)
               do (progn
                    (incf readers-waiting)
                    (bt:condition-wait recv-ok lock)
                    (decf readers-waiting)))
+
         (multiple-value-prog1
+            ;; get value
             (values (shiftf (channel-value channel) *secret-unbound-value*) channel)
+
+          ;; decf writers waiting
           (decf writers-waiting)
+
+          ;; nofity writers to finish
           (bt:condition-notify send-ok))))))
 
 
@@ -80,9 +101,12 @@
 ;;;
 (defclass buffered-channel (abstract-channel)
   ((queue :accessor channel-queue)
+
    (lock :initform (bt:make-recursive-lock) :accessor channel-lock)
+
    (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)
    (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)
+
    (readers-waiting :initform 0 :accessor channel-readers-waiting)
    (writers-waiting :initform 0 :accessor channel-writers-waiting)))
 
@@ -101,7 +125,7 @@
   (:method ((channel buffered-channel)) t))
 
 ;;; Send value to buffered channel.
-(defmethod send ((channel buffered-channel) value)
+(defmethod send ((channel buffered-channel) value &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
                    (writers-waiting channel-writers-waiting)
@@ -122,7 +146,7 @@
       channel)))
 
 ;;; Receive value from buffered channel
-(defmethod recv ((channel buffered-channel))
+(defmethod recv ((channel buffered-channel) &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
                    (writers-waiting channel-writers-waiting)
@@ -150,42 +174,26 @@
 ;;;
 (defmacro select (&body clauses)
   (let ((default))
-    (with-gensyms (can choosen channel typ clau arg)
+    (with-gensyms (can choosen)
       `(let ((,can nil))
          ,@(loop :for each :in clauses
                  :collect (ecase (clause-type each)
                             (:send `(when (chan-can-send ,(second (first each)))
-                                      (push (list
-                                             ,(second (first each)) ;; channel
-                                             :send         ;; type
-                                             ',(rest each) ;; body
-                                             ,(third (first each))) ;; val to be sent
+                                      (push '(let ((,(fourth (first each)) (send ,(second (first each)) ,(third (first each)))))
+                                              ,@(rest each))
                                             ,can)))
                             (:recv `(when (chan-can-recv ,(second (first each)))
-                                      (push (list
-                                             ,(second (first each)) ;; channel
-                                             :recv         ;; type
-                                             ',(rest each) ;; body
-                                             ,(third (first each)) ;; recv variable to bind
-                                             )
+                                      (push '(multiple-value-bind (,@(cddr (first each)))
+                                              (recv ,(second (first each)))
+                                              ,@(rest each))
                                             ,can)))
                             (:else (push (rest each) default) nil)))
          (if (null ,can)
              (progn
                ,@(pop default))
              (progn
-               (let* ((,choosen (list-random-element ,can))
-                      (,channel (first ,choosen))
-                      (,typ (second ,choosen))
-                      (,clau (third ,choosen))
-                      (,arg (fourth ,choosen)))
-                 (if (equal ,typ :recv)
-                     (multiple-value-bind (,arg)
-                         (recv ,channel)
-                       (mapcar #'eval ,clau))
-                     (progn (send ,channel ,arg)
-                            (mapcar #'eval ,clau))))))
-         nil))))
+               (let* ((,choosen (list-random-element ,can)))
+                 (eval ,choosen))))))))
 
 
 (defgeneric chan-can-recv (channel)
@@ -198,7 +206,7 @@
 (defgeneric chan-can-send (channel)
   (:method ((channel unbuffered-channel))
     (bt:with-recursive-lock-held ((channel-lock channel))
-      (> (channel-writers-waiting channel) 0)))
+      (> (channel-readers-waiting channel) 0)))
   (:method ((channel buffered-channel))
     (let ((queue (channel-queue channel)))
       (< (queue-count queue) (queue-length queue)))))

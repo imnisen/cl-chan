@@ -179,9 +179,16 @@
          ,@(loop :for each :in clauses
                  :collect (ecase (clause-type each)
                             (:send `(when (chan-can-send ,(second (first each)))
-                                      (push '(let ((,(fourth (first each)) (send ,(second (first each)) ,(third (first each)))))
-                                              ,@(rest each))
-                                            ,can)))
+                                      (push
+                                       ',(if (null (fourth (first each)))
+                                             `(progn
+                                                (send ,(second (first each)) ,(third (first each)))
+                                                ,@(rest each))
+                                             `(let ((,(fourth (first each))
+                                                      (send ,(second (first each)) ,(third (first each)))))
+                                                ,@(rest each))
+                                             )
+                                       ,can)))
                             (:recv `(when (chan-can-recv ,(second (first each)))
                                       (push '(multiple-value-bind (,@(cddr (first each)))
                                               (recv ,(second (first each)))

@@ -35,13 +35,9 @@
                    (send-ok channel-send-ok)
                    (recv-ok channel-recv-ok))
       channel
-
     (bt:with-lock-held (recv-lock)
       (loop :while (> senders 0)
-            :if blockp :do (progn
-                             (format t "senders:waiting other-send-ok..~%")
-                             (bt:condition-wait other-send-ok recv-lock)
-                             (format t "senders:wake from waiting of other-send-ok~%"))
+            :if blockp :do (bt:condition-wait other-send-ok recv-lock)
             :else :do (return-from send nil))
       (incf senders))
 
@@ -51,13 +47,7 @@
               (progn
                 (setf (channel-value channel) value)
                 (incf senders-waiting)
-
-                (format t "senders:waiting for send-ok~%")
-                (bt:condition-wait send-ok lock)
-                (format t "senders:wake from waiting of send-ok~%")
-
-                ;; (decf senders-waiting)
-                )
+                (bt:condition-wait send-ok lock))
               (progn
                 (bt:with-lock-held (recv-lock)
                   (decf senders))
@@ -65,25 +55,16 @@
           (progn
             (setf (channel-value channel) value)
             (incf senders-waiting)
-
-            (format t "senders:notify recv-ok ~%")
             (bt:condition-notify recv-ok)
-            (format t "senders:waiting send-ok~%")
-
             (bt:condition-wait send-ok lock)
-            (format t "senders:wake from waiting of send-ok~%")
-
-            ;; (decf senders-waiting)
             )))
 
     (bt:with-lock-held (recv-lock)
       (decf senders)
-
-      (format t "senders:notify other-send-ok~%")
       (bt:condition-notify other-send-ok) ;; TODO this also signal when no other senders
       )
-    channel
-    ))
+
+    channel))
 
 (defmethod recv ((channel unbuffered-channel) &key (blockp t))
   (with-accessors ((send-lock channel-send-lock)
@@ -98,10 +79,7 @@
     (let ((value))
       (bt:with-lock-held (send-lock)
         (loop :while (> recvers 0)
-              :if blockp :do (progn
-                               (format t "recver:waiting other-recv-ok~%")
-                               (bt:condition-wait other-recv-ok send-lock)
-                               (format t "recver:wake from waiting of other-recv-ok~%"))
+              :if blockp :do (bt:condition-wait other-recv-ok send-lock)
               :else :do (return-from recv (values nil nil)))
         (incf recvers))
 
@@ -110,29 +88,20 @@
               :if blockp
               :do (progn
                     (incf recvers-waiting)
-                    (format t "recver:waiting recv-ok~%")
                     (bt:condition-wait recv-ok lock)
-                    (format t "recver:wake from waiting of recv-ok~%")
                     (decf recvers-waiting))
               :else :do (progn
-                          ;; protect with lock
                           (bt:with-lock-held (send-lock)
                             (decf recvers))
                           (return-from recv (values nil nil))))
         (setf value
               (shiftf (channel-value channel) *secret-unbound-value*))
-
         (decf senders-waiting)  ;; Move (decf senders-waiting) from senders to recvs, it is important. If not, deadlock!
-
-        (format t "recver:notify send-ok~%")
-        (bt:condition-notify send-ok)
-        )
+        (bt:condition-notify send-ok))
 
       (bt:with-lock-held (send-lock)
         (decf recvers)
-
-        (format t "recver:notify other-recv-ok~%")
-        (bt:condition-notify other-recv-ok) ;; This would cause racing, if
+        (bt:condition-notify other-recv-ok) ;; TODO this also signal when no other senders
         )
 
       (values value channel))))

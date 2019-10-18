@@ -7,7 +7,5 @@
    #:unbuffered-channel
    #:buffered-channel
    #:channel-buffered-p
-   #:make-channel
    #:select
-   #:pexec
-   ))
+   #:pexec))

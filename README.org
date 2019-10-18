@@ -96,7 +96,9 @@ Steps:
 first random choose a channel to send/recv, use (send/recv blockp nil), if success return, else choose another one.
 
 Maybe let's check how golang implement send,recv and select?
-
+*** TODO Refactor class field name
+*** TODO Remove comment
+*** TODO Rewrite Readme
 *** port other chanl rest concepts
 *** port chan.c other funcs
 *** write test case

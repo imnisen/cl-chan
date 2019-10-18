@@ -7,13 +7,11 @@
 (defclass buffered-channel (abstract-channel)
   ((queue :accessor channel-queue)
 
-   (lock :initform (bt:make-recursive-lock) :accessor channel-lock)
-
-   (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)
-   (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)
-
-   (readers-waiting :initform 0 :accessor channel-readers-waiting)
-   (writers-waiting :initform 0 :accessor channel-writers-waiting)))
+   (lock :initform (bt:make-recursive-lock) :accessor channel-lock) ;; protect multi senders and recvers
+   (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)  ;; recver notify sender
+   (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)  ;; sender notify recver
+   (recvers-waiting :initform 0 :accessor channel-recvers-waiting) ;; how many recvers waiting for recv
+   (senders-waiting :initform 0 :accessor channel-senders-waiting))) ;; how many senders waiting for send
 
 
 (defconstant +maximum-buffer-size+ (- array-total-size-limit 2)
@@ -32,20 +30,20 @@
 (defmethod send ((channel buffered-channel) value &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
-                   (writers-waiting channel-writers-waiting)
-                   (readers-waiting channel-readers-waiting)
+                   (senders-waiting channel-senders-waiting)
+                   (recvers-waiting channel-recvers-waiting)
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok))
       channel
     (bt:with-lock-held (lock)
       (loop :while (queue-full-p queue)
             :if blockp :do (progn
-                             (incf writers-waiting)
+                             (incf senders-waiting)
                              (bt:condition-wait send-ok lock)
-                             (decf writers-waiting))
+                             (decf senders-waiting))
             :else :do (return-from send nil))
       (enqueue value queue)
-      (when (> readers-waiting 0)
+      (when (> recvers-waiting 0)
         (bt:condition-notify recv-ok))
       channel)))
 
@@ -53,21 +51,21 @@
 (defmethod recv ((channel buffered-channel) &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
-                   (writers-waiting channel-writers-waiting)
-                   (readers-waiting channel-readers-waiting)
+                   (senders-waiting channel-senders-waiting)
+                   (recvers-waiting channel-recvers-waiting)
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok))
       channel
     (bt:with-lock-held (lock)
       (loop :while (queue-empty-p queue)
             :if blockp :do (progn
-                             (incf readers-waiting)
+                             (incf recvers-waiting)
                              (bt:condition-wait recv-ok lock)
-                             (decf readers-waiting))
+                             (decf recvers-waiting))
             :else :do (return-from recv (values nil nil)))
 
       (multiple-value-prog1
           (values (dequeue queue) channel)
-        (when (> writers-waiting 0)
+        (when (> senders-waiting 0)
           (bt:condition-notify send-ok))
         ))))

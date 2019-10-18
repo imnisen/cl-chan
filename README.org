@@ -1,22 +1,48 @@
 #+OPTIONS: toc:nil
 * Cl-Chan 
+** Description
+~cl-chan~ provides a golang like unbuffered/buffered channel.
+
+With ~send~ or ~recv~, you can send or receive value to channel.
+
+Also with ~select~, you can randomly listen to event from a channel.
+
+It based on multi-threads library ~bordeaux-threads~ to act like gorotine stuff.
+
+
+Note, 
+
+This project is inspired by [[https://github.com/zkat/chanl][chanl]] and [[https://github.com/tylertreat/chan][chan]]. Lots of utils code is copy from  [[https://github.com/zkat/chanl][chanl]], such as ~queues.lisp~, ~threads.lisp~, ~utils.lisp~.
+
+The reason I write ~cl-chan~ is that as the only useable CSP lib I find in cl world,  [[https://github.com/zkat/chanl][chanl]] test cases may cause race condition, you can refer to this [[https://github.com/zkat/chanl/issues/13][issue]]. 
+It seems hard to fix it as it abstracts a lot from different channels. So I made a simple worked one.
+
+I refer to project [[https://github.com/tylertreat/chan][chan]]. But I found the select implenmentation may have a problem ([[https://github.com/tylertreat/chan/issues/26][issue]]), So I chose the select the implementation of [[https://github.com/zkat/chanl][chanl]] .
+Also, in order to add functionality of non-block send and receive, I rewrite the logic of ~send~ and ~recv~.
+
 
 ** Usage
-~cl-chan~ provides a golang-like channel stuff. It provides two types channel: ~unbuffered-channel~ and ~buffered-channel~. 
-
+~cl-chan~ provides two types channel: ~unbuffered-channel~ and ~buffered-channel~. 
 #+BEGIN_SRC lisp
 ;; make a unbuffered channel
-CL-CHAN> (defvar *c1* (make-channel))
+CL-CHAN> (defvar *c1* (make-instance 'unbuffered-channel))
 *C1*
 
 
 ;; make a buffered channel with size 2.
-CL-CHAN> (defvar *c2* (make-channel :buffered t :size 2))
+CL-CHAN> (defvar *c2* (make-instance 'buffered-channel :size 2))
 *C2*
+
+;; check if channel is buffered
+CL-CHAN> (channel-bufferedp *c1*)
+NIL
+
+CL-CHAN> (channel-bufferedp *c2*)
+T
 #+END_SRC
 
-You can use ~send~ to send value to a channel or ~recv~ to receive value from it.
 
+You can use ~send~ to send value to a channel or ~recv~ to receive value from it.
 #+BEGIN_SRC 
 ;; return value is channel itself
 CL-CHAN> (send *c2* 1)
@@ -28,7 +54,16 @@ CL-CHAN> (recv *c2*)
 1
 #<BUFFERED-CHANNEL {100285CD33}>
 
+;; send and receive with blockp nil
+CL-CHAN> (send *c2* :blockp nil)
+#<BUFFERED-CHANNEL {100285CD33}>
+
+CL-CHAN> (recv *c2* :blockp nil)
+1
+#<BUFFERED-CHANNEL {100285CD33}>
+
 #+END_SRC
+
 
 Also there is a ~select~ which could be used to wait one of multi channels events to happen.
 #+BEGIN_SRC 
@@ -46,19 +81,26 @@ Also there is a ~select~ which could be used to wait one of multi channels event
 #+END_SRC
 
 
-Note, This project is currerently a prototype which I steal many ideas from [[https://github.com/zkat/chanl][chanl]] and [[https://github.com/tylertreat/chan][chan]].
+Create a new thread continually reading values and printing them:
+#+BEGIN_SRC 
+(pexec ()
+   (loop (format t "~a~%" (recv *c*))))
+#+END_SRC
 
-However, in project chanl, I found the unbuffered channel may cause race condition which is not fixed ([[https://github.com/zkat/chanl/issues/13][issue]]).
 
-In project chan, I found the select implenmentation may have a problem ([[https://github.com/tylertreat/chan/issues/26][issue]]).
 
-Basically, this version of channel implenmentation is almost same as project chan one. So the select may have problem also.
+Create a new thread that runs a function:
+#+BEGIN_SRC 
+(pcall #'my-function)
 
-I will try fix it in a while which may introduce a blockp paramter to recv/send.
+#+END_SRC
+
+
+
 
 
 ** Installation
-Download the repo in where your quicklisp can find (such as ~~/quicklisp/local-projects~), then use ~(ql:quickload :cl-chan)~ to install.
+Download the repo in where your quicklisp can find (such as ~~/quicklisp/local-projects~), then use ~(ql:quickload :cl-chan)~ to load.
 
 ** Author
 
@@ -69,47 +111,9 @@ Download the repo in where your quicklisp can find (such as ~~/quicklisp/local-p
 Do whatever you want.
 
 ** TODOS                                                                        :noexport:
-
-*** DONE add buffered channel
-    CLOSED: [2019-10-08 Tue 15:16]
-    :LOGBOOK:
-    - State "DONE"       from              [2019-10-08 Tue 15:16]
-    :END:
-- check how the queue is make?
-*** DONE add select
-    CLOSED: [2019-10-08 Tue 15:16]
-    :LOGBOOK:
-    - State "DONE"       from              [2019-10-08 Tue 15:16]
-    :END:
-*** DONE may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
-    CLOSED: [2019-10-18 Fri 16:15]
-    :LOGBOOK:
-    - State "DONE"       from "TODO"       [2019-10-18 Fri 16:15]
-    :END:
-The problem is due to check and actually send/recv is not guaranteed to be consistent.
-So if channel can send/recv, don't release the lock, get the value also.
-
-Steps:
-1. add send/recv blockp feature.
-
-2. change select select logic:
-first random choose a channel to send/recv, use (send/recv blockp nil), if success return, else choose another one.
-
-Maybe let's check how golang implement send,recv and select?
-*** TODO Refactor class field name
-*** TODO Remove comment
-*** TODO Rewrite Readme
-*** port other chanl rest concepts
-*** port chan.c other funcs
-*** write test case
-*** refactor readers,writers to readers-waiting, writers-waiting
-*** select implenmentation use `eval`, consider trying another method to avoid it?
-*** Do we need close and init of channel?
-*** can we abstract concepts like chanl?
-*** Add documentation of methods.
-*** Refactor name.
-*** Export useful functions from other file
 *** Add racing test for buffered channel
+*** Do we need close and init of channel?
+*** port other chanl rest concepts? chan.c other funcs?
 *** A derived question:
 how to eval code in runtime with lexcial scope variable.
 Just like the before `select` version

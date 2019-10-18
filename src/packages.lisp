@@ -6,6 +6,6 @@
    #:recv
    #:unbuffered-channel
    #:buffered-channel
-   #:channel-buffered-p
+   #:channel-bufferedp
    #:select
    #:pexec))

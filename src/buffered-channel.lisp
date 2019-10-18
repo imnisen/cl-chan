@@ -23,7 +23,7 @@
   (setf (channel-queue channel) (make-queue size)))
 
 ;;; Check if it is buffered channel
-(defgeneric channel-buffered-p (channel)
+(defgeneric channel-bufferedp (channel)
   (:method ((anything-else t)) nil)
   (:method ((channel buffered-channel)) t))
 

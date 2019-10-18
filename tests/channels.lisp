@@ -14,7 +14,7 @@
 (test make-unbuffered
   (let ((chan (make-instance 'unbuffered-channel)))
     (is (channelp chan))
-    (is (not (channel-buffered-p chan)))
+    (is (not (channel-bufferedp chan)))
     ;; (is (= 0 (channel-recvers-waiting chan)))
     ;; (is (= 0 (channel-senders-waiting chan)))
     (is (eq *secret-unbound-value* (channel-value chan)))
@@ -30,7 +30,7 @@
 (test make-buffered
   (let ((chan (make-instance 'buffered-channel :size 10)))
     (is (channelp chan))
-    (is (channel-buffered-p chan))
+    (is (channel-bufferedp chan))
     (is (queuep (channel-queue chan)))
     (is (= 10 (queue-length (channel-queue chan))))
     ;; (is (= 0 (channel-recvers-waiting chan)))

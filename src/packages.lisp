@@ -1,4 +1,4 @@
-(defpackage cl-chan
+(defpackage :cl-chan
   (:use :cl)
   (:import-from :bordeaux-threads :*default-special-bindings*)
   (:export
@@ -8,4 +8,5 @@
    #:buffered-channel
    #:channel-buffered-p
    #:make-channel
+   #:select
    ))

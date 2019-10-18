@@ -23,7 +23,9 @@
                 :serial t
                 :components
                 ((:file "setup-tests")
-                 (:file "channels"))))
+                 (:file "channels")
+                 ;; (:file "select")
+                 )))
   :description "Test system for cl-chan"
   :perform
   (test-op (o c)
@@ -36,8 +38,8 @@
                   **            Tests finished           **~@
                   *****************************************~@
                   ** If there were any failures, please  **~@
-                  **      file a bugreport on github:    **~@
-                  **     github.com/imnisen/cl-chan/issues    **~@
+                  **      file a bug report on github:    **~@
+                  **   github.com/imnisen/cl-chan/issues  **~@
                   *****************************************~%"))
   ;; (test-op (op c) (symbol-call :rove :run c))
   )

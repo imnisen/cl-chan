@@ -9,8 +9,10 @@
                  (:file "utils")
                  (:file "threads")
                  (:file "queues")
-                 (:file "select")
-                 (:file "main"))))
+                 (:file "abstract-channel")
+                 (:file "unbuffered-channel")
+                 (:file "buffered-channel")
+                 (:file "select"))))
   :description ""
   :in-order-to ((test-op (test-op "cl-chan/tests"))))
 

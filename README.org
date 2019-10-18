@@ -81,7 +81,11 @@ Do whatever you want.
     :LOGBOOK:
     - State "DONE"       from              [2019-10-08 Tue 15:16]
     :END:
-*** TODO may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
+*** DONE may select has a bug, first can recv/send, then recv/send it fails and block. what to do?
+    CLOSED: [2019-10-18 Fri 16:15]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2019-10-18 Fri 16:15]
+    :END:
 The problem is due to check and actually send/recv is not guaranteed to be consistent.
 So if channel can send/recv, don't release the lock, get the value also.
 
@@ -104,3 +108,6 @@ Maybe let's check how golang implement send,recv and select?
 *** Refactor name.
 *** Export useful functions from other file
 *** Add racing test for buffered channel
+*** A derived question:
+how to eval code in runtime with lexcial scope variable.
+Just like the before `select` version

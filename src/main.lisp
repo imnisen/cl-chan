@@ -230,6 +230,7 @@
 ;; TODO
 ;; 目前的问题就是， recv发送other-recv-ok时，sender可能没完成
 ;; 所以第二个 recver就会直接去拿取前一个sender的内容。
+;; Solved by mv writers-waiting from send to recv
 
 ;;;
 ;;; Buffered channels (bounded)
@@ -260,6 +261,26 @@
   (:method ((channel buffered-channel)) t))
 
 ;;; Send value to buffered channel.
+;; (defmethod send ((channel buffered-channel) value &key (blockp t))
+;;   (with-accessors ((lock channel-lock)
+;;                    (queue channel-queue)
+;;                    (writers-waiting channel-writers-waiting)
+;;                    (readers-waiting channel-readers-waiting)
+;;                    (recv-ok channel-recv-ok)
+;;                    (send-ok channel-send-ok))
+;;       channel
+;;     (bt:with-recursive-lock-held (lock)
+;;       ;; if the queue is full, block until something is removed
+;;       (loop while (queue-full-p queue)
+;;             do (progn
+;;                  (incf writers-waiting)
+;;                  (bt:condition-wait send-ok lock)
+;;                  (decf writers-waiting)))
+;;       (enqueue value queue)
+;;       (when (> readers-waiting 0)
+;;         (bt:condition-notify recv-ok))
+;;       channel)))
+
 (defmethod send ((channel buffered-channel) value &key (blockp t))
   (with-accessors ((lock channel-lock)
                    (queue channel-queue)
@@ -268,13 +289,13 @@
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok))
       channel
-    (bt:with-recursive-lock-held (lock)
-      ;; if the queue is full, block until something is removed
-      (loop while (queue-full-p queue)
-            do (progn
-                 (incf writers-waiting)
-                 (bt:condition-wait send-ok lock)
-                 (decf writers-waiting)))
+    (bt:with-lock-held (lock)
+      (loop :while (queue-full-p queue)
+            :if blockp :do (progn
+                             (incf writers-waiting)
+                             (bt:condition-wait send-ok lock)
+                             (decf writers-waiting))
+            :else :do (return-from send nil))
       (enqueue value queue)
       (when (> readers-waiting 0)
         (bt:condition-notify recv-ok))
@@ -289,14 +310,13 @@
                    (recv-ok channel-recv-ok)
                    (send-ok channel-send-ok))
       channel
-    (bt:with-recursive-lock-held (lock)
-
-      ;; if the queue is full, block until something is removed
-      (loop while (queue-empty-p queue)
-            do (progn
-                 (incf readers-waiting)
-                 (bt:condition-wait recv-ok lock)
-                 (decf readers-waiting)))
+    (bt:with-lock-held (lock)
+      (loop :while (queue-empty-p queue)
+            :if blockp :do (progn
+                             (incf readers-waiting)
+                             (bt:condition-wait recv-ok lock)
+                             (decf readers-waiting))
+            :else :do (return-from recv (values nil nil)))
 
       (multiple-value-prog1
           (values (dequeue queue) channel)
@@ -304,74 +324,75 @@
           (bt:condition-notify send-ok))
         ))))
 
-;;;
-;;; select
-;;;
-(defmacro select (&body clauses)
-  (let ((default))
-    (with-gensyms (can choosen)
-      `(let ((,can nil))
-         ,@(loop :for each :in clauses
-                 :collect (ecase (clause-type each)
-                            (:send `(when (chan-can-send ,(second (first each)))
-                                      (push
-                                       ',(if (null (fourth (first each)))
-                                             `(progn
-                                                (send ,(second (first each)) ,(third (first each)))
-                                                ,@(rest each))
-                                             `(let ((,(fourth (first each))
-                                                      (send ,(second (first each)) ,(third (first each)))))
-                                                ,@(rest each))
-                                             )
-                                       ,can)))
-                            (:recv `(when (chan-can-recv ,(second (first each)))
-                                      (push '(multiple-value-bind (,@(cddr (first each)))
-                                              (recv ,(second (first each)))
-                                              ,@(rest each))
-                                            ,can)))
-                            (:else (push (rest each) default) nil)))
-         (if (null ,can)
-             (progn
-               ,@(pop default))
-             (progn
-               (let* ((,choosen (list-random-element ,can)))
-                 (eval ,choosen))))))))
+;; ;;;
+;; ;;; select
+;; ;;;
+;; (defmacro select (&body clauses)
+;;   (let ((default))
+;;     (with-gensyms (can choosen)
+;;       `(let ((,can nil))
+;;          ,@(loop :for each :in clauses
+;;                  :collect (ecase (clause-type each)
+;;                             (:send `(when (chan-can-send ,(second (first each)))
+;;                                       (push
+;;                                        ',(if (null (fourth (first each)))
+;;                                              `(progn
+;;                                                 (send ,(second (first each)) ,(third (first each)))
+;;                                                 ,@(rest each))
+;;                                              `(let ((,(fourth (first each))
+;;                                                       (send ,(second (first each)) ,(third (first each)))))
+;;                                                 ,@(rest each))
+;;                                              )
+;;                                        ,can)))
+;;                             (:recv `(when (chan-can-recv ,(second (first each)))
+;;                                       (push '(multiple-value-bind (,@(cddr (first each)))
+;;                                               (recv ,(second (first each)))
+;;                                               ,@(rest each))
+;;                                             ,can)))
+;;                             (:else (push (rest each) default) nil)))
+;;          (if (null ,can)
+;;              (progn
+;;                ,@(pop default))
+;;              (progn
+;;                (let* ((,choosen (list-random-element ,can)))
+;;                  (eval ,choosen))))))))
 
 
-(defgeneric chan-can-recv (channel)
-  (:method ((channel unbuffered-channel))
-    (bt:with-recursive-lock-held ((channel-lock channel))
-      (> (channel-writers-waiting channel) 0)))
-  (:method ((channel buffered-channel))
-    (> (queue-count (channel-queue channel)) 0)))
+;; (defgeneric chan-can-recv (channel)
+;;   (:method ((channel unbuffered-channel))
+;;     (bt:with-recursive-lock-held ((channel-lock channel))
+;;       (> (channel-writers-waiting channel) 0)))
+;;   (:method ((channel buffered-channel))
+;;     (> (queue-count (channel-queue channel)) 0)))
 
-(defgeneric chan-can-send (channel)
-  (:method ((channel unbuffered-channel))
-    (bt:with-recursive-lock-held ((channel-lock channel))
-      (> (channel-readers-waiting channel) 0)))
-  (:method ((channel buffered-channel))
-    (let ((queue (channel-queue channel)))
-      (< (queue-count queue) (queue-length queue)))))
+;; (defgeneric chan-can-send (channel)
+;;   (:method ((channel unbuffered-channel))
+;;     (bt:with-recursive-lock-held ((channel-lock channel))
+;;       (> (channel-readers-waiting channel) 0)))
+;;   (:method ((channel buffered-channel))
+;;     (let ((queue (channel-queue channel)))
+;;       (< (queue-count queue) (queue-length queue)))))
 
-(defgeneric chan-size (channel)
-  (:method ((channel unbuffered-channel)) 0)
-  (:method ((channel buffered-channel))
-    (bt:with-recursive-lock-held ((channel-lock channel))
-      (queue-count (channel-queue channel)))))
+;; (defgeneric chan-size (channel)
+;;   (:method ((channel unbuffered-channel)) 0)
+;;   (:method ((channel buffered-channel))
+;;     (bt:with-recursive-lock-held ((channel-lock channel))
+;;       (queue-count (channel-queue channel)))))
 
-(defun clause-type (clause)
-  (cond ((when (symbolp (car clause))
-           (or (string-equal (car clause) "t")
-               (string-equal (car clause) "else")
-               (string-equal (car clause) "otherwise")))
-         :else) ;; when `default case` use "t","else","otherwise",  we mark it ":else"
-        ((atom (car clause)) (error "Invalid selector: ~S" (car clause))) ;; clause could't be `atom`
-        ((string-equal (caar clause) "send") :send)
-        ((string-equal (caar clause) "recv") :recv)
-        (t (error "Invalid selector: ~S" (caar clause)))))
+;; (defun clause-type (clause)
+;;   (cond ((when (symbolp (car clause))
+;;            (or (string-equal (car clause) "t")
+;;                (string-equal (car clause) "else")
+;;                (string-equal (car clause) "otherwise")))
+;;          :else) ;; when `default case` use "t","else","otherwise",  we mark it ":else"
+;;         ((atom (car clause)) (error "Invalid selector: ~S" (car clause))) ;; clause could't be `atom`
+;;         ((string-equal (caar clause) "send") :send)
+;;         ((string-equal (caar clause) "recv") :recv)
+;;         (t (error "Invalid selector: ~S" (caar clause)))))
 
 
 ;;; The new intance method
+;; TODO make this check size at macro expansion.
 (defun make-channel (&key (buffered nil) (size 1))
   (if buffered
       (make-instance 'buffered-channel :size size)

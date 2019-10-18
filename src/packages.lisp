@@ -9,4 +9,5 @@
    #:channel-buffered-p
    #:make-channel
    #:select
+   #:pexec
    ))

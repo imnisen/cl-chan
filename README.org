@@ -103,3 +103,4 @@ Maybe let's check how golang implement send,recv and select?
 *** Add documentation of methods.
 *** Refactor name.
 *** Export useful functions from other file
+*** Add racing test for buffered channel

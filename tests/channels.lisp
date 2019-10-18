@@ -68,14 +68,14 @@
     ))
 
 (test send-buffered
-      (let ((channel (make-instance 'buffered-channel :size 1)))
-        ;; (is (eq channel (send channel 'test :blockp nil)))
-        ;; (recv channel)
-        (is (eq channel (send channel 'test)))
-        ;; (is (null (send channel 'test :blockp nil)))
-        (pexec () (recv channel))
-        (is (eq channel (send channel 'test)))
-        (pexec () (recv channel))))
+  (let ((channel (make-instance 'buffered-channel :size 1)))
+    (is (eq channel (send channel 'test :blockp nil)))
+    (recv channel)
+    (is (eq channel (send channel 'test)))
+    (is (null (send channel 'test :blockp nil)))
+    (pexec () (recv channel))
+    (is (eq channel (send channel 'test)))
+    (pexec () (recv channel))))
 
 
 (def-suite receiving :in messaging)
@@ -103,15 +103,15 @@
 
 (test recv-buffered
   (let ((channel (make-instance 'buffered-channel :size 1)))
-    ;; (is (null (recv channel :blockp nil)))
-    ;; (is (null (nth-value 1 (recv channel :blockp nil))))
+    (is (null (recv channel :blockp nil)))
+    (is (null (nth-value 1 (recv channel :blockp nil))))
     (send channel 'test)
     (multiple-value-bind (value rec-chan)
         (recv channel)
       (is (eq channel rec-chan))
       (is (eq 'test value)))
-    ;; (is (null (recv channel :blockp nil)))
-    ;; (is (null (nth-value 1 (recv channel :blockp nil))))
+    (is (null (recv channel :blockp nil)))
+    (is (null (nth-value 1 (recv channel :blockp nil))))
     (pexec () (send channel 'test))
     (is (eq 'test (recv channel)))))
 

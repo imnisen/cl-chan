@@ -9,6 +9,7 @@
                  (:file "utils")
                  (:file "threads")
                  (:file "queues")
+                 (:file "select")
                  (:file "main"))))
   :description ""
   :in-order-to ((test-op (test-op "cl-chan/tests"))))
@@ -24,7 +25,7 @@
                 :components
                 ((:file "setup-tests")
                  (:file "channels")
-                 ;; (:file "select")
+                 (:file "select")
                  )))
   :description "Test system for cl-chan"
   :perform

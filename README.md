@@ -66,6 +66,10 @@ You can use `send` to send value to a channel or `recv` to receive value from it
 
 Also there is a `select` which could be used to wait one of multi channels events to happen.
 
+If there is no default case, the `select` statement blocks until at least one of the communications can proceed. (The select will keep looping, which is not good. Need to fix.)
+
+The difference to golang select is select an empty expression. Golang select will block forever however, our's will return nil. (This may change overtime, don't rely on it.)
+
     
     (select
        ((recv c d)

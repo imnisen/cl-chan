@@ -11,15 +11,15 @@
   ((value :initform *secret-unbound-value* :accessor channel-value)
 
    ;;; protect sender and recver
-   (lock :initform (bt:make-recursive-lock) :accessor channel-lock) ;; protect sender and recver access value
+   (lock :initform (bt:make-lock) :accessor channel-lock) ;; protect sender and recver access value
    (recvers-waiting :initform 0 :accessor channel-recvers-waiting) ;; how many recvers waiting for sender (this case should be 0 or 1)
    (senders-waiting :initform 0 :accessor channel-senders-waiting) ;; how many senders waiting for recver (this case should be 0 or 1)
    (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok) ;; recver notify sender
    (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok) ;; sender nofity recver
 
    ;;; protect sender and sender, recver and recver
-   (send-lock :initform (bt:make-recursive-lock) :accessor channel-send-lock) ;; separate multi senders
-   (recv-lock :initform (bt:make-recursive-lock) :accessor channel-recv-lock) ;; separate multi recvers
+   (send-lock :initform (bt:make-lock) :accessor channel-send-lock) ;; separate multi senders
+   (recv-lock :initform (bt:make-lock) :accessor channel-recv-lock) ;; separate multi recvers
    (recvers :initform 0 :accessor channel-recvers) ;; how many recvers waiting for the working recver to finish.
    (senders :initform 0 :accessor channel-senders) ;; how many senders waiting for the working sender to finish.
    (other-send-ok :initform (bt:make-condition-variable) :accessor channel-other-send-ok)

@@ -7,7 +7,7 @@
 (defclass buffered-channel (abstract-channel)
   ((queue :accessor channel-queue)
 
-   (lock :initform (bt:make-recursive-lock) :accessor channel-lock) ;; protect multi senders and recvers
+   (lock :initform (bt:make-lock) :accessor channel-lock) ;; protect multi senders and recvers
    (send-ok :initform (bt:make-condition-variable) :accessor channel-send-ok)  ;; recver notify sender
    (recv-ok :initform (bt:make-condition-variable) :accessor channel-recv-ok)  ;; sender notify recver
    (recvers-waiting :initform 0 :accessor channel-recvers-waiting) ;; how many recvers waiting for recv

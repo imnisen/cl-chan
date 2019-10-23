@@ -91,6 +91,8 @@ Create a new thread that runs a function:
 
 Download the repo in where your quicklisp can find (such as `~/quicklisp/local-projects`), then use `(ql:quickload :cl-chan)` to load.
 
+Currently tested on sbcl and ccl, you can test as: `(asdf:test-system :cl-chan)`
+
 
 ## Author
 
